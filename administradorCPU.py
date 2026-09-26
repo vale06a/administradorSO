@@ -4,6 +4,12 @@ memoria = [
     {"id": 0, "base": 0,   "tam": 100, "proceso": "SO"},
     {"id": 1, "base": 100, "tam": 450, "proceso": "LIBRE"},
 ]
+
+tabla_particiones = [
+    {"id_particion": None, "dirParticion": None, "tamaño": None, "id_proceso": None, "frag_ext": None}
+]
+
+
 siguienteIdParticion = 2
 
 colaNuevos = []
@@ -28,10 +34,9 @@ def cargarProcesosDesdeEntrada(cantidad):
         }
         colaNuevos.append(proceso)
 
-
 #best-fit
 
-def buscarMejorParticion(tamProceso):
+def best_FIT(tamProceso):
     mejorIndex = -1
     mejorDiferencia = None
     for i, part in enumerate(memoria):
@@ -67,7 +72,7 @@ def asignarParticion(idxParticion, proceso):
 
 #revisa si el proceso que acaba de llegar a Listos expropia al que está en CPU (SRTF)
 
-def verificarInterrupcion(procesoNuevo, tiempoActual):
+def algoritmo_SRTF(procesoNuevo, tiempoActual):
     global procesoEnEjecucion
 
     if procesoEnEjecucion is None:
@@ -104,14 +109,14 @@ def cargarNuevos(tiempoActual):
             print("Listas llenas, no se admiten más procesos por ahora")
             break
 
-        idx = buscarMejorParticion(proceso["tam"])
+        idx = best_FIT(proceso["tam"])
         #Si es -1 no hay particiones disponibles y va a listos y susp
         if idx == -1:
             colaListosYSusp.append(proceso)
         else:
             asignarParticion(idx, proceso)
             colaListos.append(proceso)
-            verificarInterrupcion(proceso, tiempoActual)
+            algoritmo_SRTF(proceso, tiempoActual)
 
         colaNuevos.remove(proceso)
         totalEnListas += 1
@@ -132,3 +137,59 @@ def finalizarProceso(proceso, tiempoActual):
             break
 
     totalEnListas -= 1
+
+#cada vez que se finaliza un proceso se va a a compactar la memoria
+def compactar():
+    global memoria
+
+    #llevo las particiones libres al final
+    bandera = True
+
+    while bandera:
+        bandera = False
+
+        for i in range(1, len(memoria) - 1):
+
+            if memoria[i]["proceso"] == "LIBRE":
+
+                particionLibre = memoria[i]
+
+                memoria[i] = memoria[i + 1]
+                memoria[i + 1] = particionLibre
+
+                bandera = True
+
+    #vuelvo a calcular las bases
+    baseActual = 0
+
+    for i in range(len(memoria)):
+
+        memoria[i]["base"] = baseActual
+
+        baseActual += memoria[i]["tam"]
+
+    #unifico las bases
+    tamañoLibre = 0
+    indiceLibre = None
+
+    for i in range(len(memoria)):
+
+        if memoria[i]["proceso"] == "LIBRE":
+
+            if indiceLibre is None:
+                indiceLibre = i
+
+            tamañoLibre += memoria[i]["tam"]
+
+    # Si existe al menos una partición libre
+    if indiceLibre is not None:
+
+        # Elimino todas las particiones LIBRE excepto la primera
+        memoria = memoria[:indiceLibre] + [
+            {
+                "id": memoria[indiceLibre]["id"],
+                "base": memoria[indiceLibre]["base"],
+                "tam": tamañoLibre,
+                "proceso": "LIBRE"
+            }
+        ]
