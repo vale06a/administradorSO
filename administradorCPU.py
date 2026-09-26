@@ -148,43 +148,41 @@ def compactar():
     while bandera:
         bandera = False
 
-        for i in range(1, len(memoria) - 1):
+        for particion in range(1, len(memoria) - 1):
 
-            if memoria[i]["proceso"] == "LIBRE":
-
-                particionLibre = memoria[i]
-
-                memoria[i] = memoria[i + 1]
-                memoria[i + 1] = particionLibre
+            if memoria[particion]["proceso"] == "LIBRE":
+                particionLibre = memoria[particion]
+                memoria[particion] = memoria[particion + 1]
+                memoria[particion + 1] = particionLibre
 
                 bandera = True
 
     #vuelvo a calcular las bases
     baseActual = 0
 
-    for i in range(len(memoria)):
+    for particion in range(len(memoria)):
 
-        memoria[i]["base"] = baseActual
+        memoria[particion]["base"] = baseActual
 
-        baseActual += memoria[i]["tam"]
+        baseActual += memoria[particion]["tam"]
 
     #unifico las bases
     tamañoLibre = 0
     indiceLibre = None
 
-    for i in range(len(memoria)):
+    for particion in range(len(memoria)):
 
-        if memoria[i]["proceso"] == "LIBRE":
+        if memoria[particion]["proceso"] == "LIBRE":
 
             if indiceLibre is None:
-                indiceLibre = i
+                indiceLibre = particion
 
-            tamañoLibre += memoria[i]["tam"]
+            tamañoLibre += memoria[particion]["tam"]
 
-    # Si existe al menos una partición libre
+    #si existe al menos una partición libre
     if indiceLibre is not None:
 
-        # Elimino todas las particiones LIBRE excepto la primera
+        #elimino todas las particiones LIBRE excepto la primera
         memoria = memoria[:indiceLibre] + [
             {
                 "id": memoria[indiceLibre]["id"],
