@@ -177,62 +177,6 @@ def finalizarProceso(proceso, tiempoActual):
     totalEnListas -= 1
 
 
-#cada vez que se finaliza un proceso se va a a compactar la memoria
-#NO SE LLAMA TODAVIA DESDE NINGUN LADO, pendiente definir criterios
-def compactar():
-    global memoria
-
-    #llevo las particiones libres al final
-    bandera = True
-
-    while bandera:
-        bandera = False
-
-        for particion in range(1, len(memoria) - 1):
-
-            if memoria[particion]["proceso"] == "LIBRE":
-                particionLibre = memoria[particion]
-                memoria[particion] = memoria[particion + 1]
-                memoria[particion + 1] = particionLibre
-
-                bandera = True
-
-    #vuelvo a calcular las bases
-    baseActual = 0
-
-    for particion in range(len(memoria)):
-
-        memoria[particion]["base"] = baseActual
-
-        baseActual += memoria[particion]["tam"]
-
-    #unifico las bases
-    tamañoLibre = 0
-    indiceLibre = None
-
-    for particion in range(len(memoria)):
-
-        if memoria[particion]["proceso"] == "LIBRE":
-
-            if indiceLibre is None:
-                indiceLibre = particion
-
-            tamañoLibre += memoria[particion]["tam"]
-
-    #si existe al menos una partición libre
-    if indiceLibre is not None:
-
-        #elimino todas las particiones LIBRE excepto la primera
-        memoria = memoria[:indiceLibre] + [
-            {
-                "id": memoria[indiceLibre]["id"],
-                "base": memoria[indiceLibre]["base"],
-                "tam": tamañoLibre,
-                "proceso": "LIBRE"
-            }
-        ]
-
-
 # ---------- Reloj de la simulación ----------
 
 def pausar():
