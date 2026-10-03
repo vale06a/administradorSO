@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+                        width="800" height="500">
+
+            <rect width="800" height="500" fill="white"/>
+
+            <text x="30" y="40"
+                font-family="monospace"
+                font-size="16"
+                xml:space="preserve"
+                fill="black">
+                    <tspan x="30" dy = "15">--------------------------------------------------</tspan>
+<tspan x="30" dy="15">| ID  | Tamaño del proceso (KB) |  TA   |  TI   |</tspan>
+<tspan x="30" dy = "15">--------------------------------------------------</tspan>
+<tspan x="30" dy="25">|  0  |           160           |   0   |   9   </tspan>
+<tspan x="30" dy="25">|  1  |           320           |   9   |  16   </tspan>
+<tspan x="30" dy="25">|  2  |           182           |  25   |   4   </tspan>
+<tspan x="30" dy="25">|  3  |           165           |  29   |  13   </tspan>
+<tspan x="30" dy="25">|  4  |           272           |  42   |  18   </tspan>
+<tspan x="30" dy="25">|  5  |           109           |  60   |   4   </tspan>
+<tspan x="30" dy="25">|  6  |           386           |  64   |  12   </tspan>
+<tspan x="30" dy="25">|  7  |           65            |  76   |  19   </tspan>
+<tspan x="30" dy="25">|  8  |           170           |  95   |  16   </tspan>
+<tspan x="30" dy="25">|  9  |           175           |  111  |  18   </tspan>
+
+            </text>
+
+        </svg>

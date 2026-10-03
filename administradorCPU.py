@@ -5,10 +5,6 @@ memoria = [
     {"id": 1, "base": 100, "tam": 450, "proceso": "LIBRE"},
 ]
 
-tabla_particiones = [
-    {"id_particion": None, "dirParticion": None, "tamaño": None, "id_proceso": None, "frag_ext": None}
-]
-
 siguienteIdParticion = 2
 
 colaNuevos = []
@@ -20,21 +16,6 @@ totalEnListas = 0  # Ejecución + Listos + Listos/Susp (max 5)
 procesoEnEjecucion = None  # dict del proceso corriendo, o None si la CPU está libre
 
 tiempoActual = 0  # reloj de la simulación
-
-
-#carga de procesos
-
-def cargarProcesosDesdeEntrada(cantidad):
-    for _ in range(cantidad):
-        datos = list(map(int, input().split()))
-        proceso = {
-            "id": datos[0],
-            "tam": datos[1],
-            "TA": datos[2],
-            "TI": datos[3],
-        }
-        colaNuevos.append(proceso)
-
 
 #best-fit
 
@@ -52,15 +33,16 @@ def best_FIT(tamProceso):
 
 def asignarParticion(idxParticion, proceso):
     global siguienteIdParticion
+    global diferencia
     part = memoria[idxParticion]
-    diferencia = part["tam"] - proceso["tam"]
+    diferencia = part["tam"] - proceso[1]
 
     # La partición se recorta al tamaño exacto del proceso
-    part["tam"] = proceso["tam"]
-    part["proceso"] = proceso["id"]
+    part["tam"] = proceso[1]
+    part["proceso"] = proceso[0]
 
     # Si quedo espacio, se crea una nueva partición libre a continuación
-    if diferencia > 0:
+    if diferencia >= 0:
         nuevaBase = part["base"] + part["tam"]
         nuevaParticion = {
             "id": siguienteIdParticion,
@@ -68,33 +50,10 @@ def asignarParticion(idxParticion, proceso):
             "tam": diferencia,
             "proceso": "LIBRE",
         }
+
         siguienteIdParticion += 1
         memoria.insert(idxParticion + 1, nuevaParticion)
-
-
-#revisa si el proceso que acaba de llegar a Listos expropia al que está en CPU (SRTF)
-
-def algoritmo_SRTF(procesoNuevo, tiempoActual):
-    global procesoEnEjecucion
-
-    if procesoEnEjecucion is None:
-        # no hay nadie corriendo: este proceso pasa directo a ejecución
-        colaListos.remove(procesoNuevo)
-        procesoEnEjecucion = procesoNuevo
-        return
-
-    # actualizo cuanto le queda al que está corriendo, hasta este instante
-    transcurrido = tiempoActual - procesoEnEjecucion["tUltimaActualizacion"]
-    procesoEnEjecucion["restante"] -= transcurrido
-    procesoEnEjecucion["tUltimaActualizacion"] = tiempoActual
-
-    if procesoNuevo["restante"] < procesoEnEjecucion["restante"]:
-        # expropiacion: el que estaba corriendo vuelve a Listos
-        colaListos.append(procesoEnEjecucion)
-        colaListos.remove(procesoNuevo)
-        procesoEnEjecucion = procesoNuevo
-    # si no es menor, procesoNuevo se queda esperando en colaListos
-
+    
 
 #ingresa a Listos o listos y susp, con decisión manual del usuario por cada candidato
 
@@ -123,7 +82,7 @@ def cargarNuevos(tiempoActual):
             proceso["restante"] = proceso["TI"]
             proceso["tUltimaActualizacion"] = tiempoActual
             colaListos.append(proceso)
-            algoritmo_SRTF(proceso, tiempoActual)  # acá puede ocurrir la interrupción
+            #algoritmo_SRTF(proceso, tiempoActual)  # acá puede ocurrir la interrupción
 
         colaNuevos.remove(proceso)
         totalEnListas += 1
@@ -131,19 +90,16 @@ def cargarNuevos(tiempoActual):
 
 #revisa colaListosYSusp cada vez que se libera una partición, por si alguno ahora entra en memoria
 
-def intentarAdmitirSuspendidos(tiempoActual):
+def admitirSuspendidos():
     pendientes = colaListosYSusp[:]
     for proceso in pendientes:
-        idx = best_FIT(proceso["tam"])
+        idx = best_FIT(proceso[1])
         if idx == -1:
             continue  # sigue sin entrar, se queda en colaListosYSusp
 
         asignarParticion(idx, proceso)
-        proceso["restante"] = proceso["TI"]
-        proceso["tUltimaActualizacion"] = tiempoActual
         colaListos.append(proceso)
         colaListosYSusp.remove(proceso)
-        algoritmo_SRTF(proceso, tiempoActual)  # puede expropiar, igual que un arribo nuevo
 
 
 #elige de colaListos al de menor tiempo remanente, cuando la CPU queda libre sin arribo simultáneo
@@ -151,30 +107,13 @@ def intentarAdmitirSuspendidos(tiempoActual):
 def elegirSiguienteProceso(tiempoActual):
     global procesoEnEjecucion
 
-    if procesoEnEjecucion is not None or not colaListos:
+    if procesoEnEjecucion is not None or not memoria:
         return  # la CPU ya está ocupada, o no hay nadie esperando
 
-    siguiente = min(colaListos, key=lambda p: p["restante"])
-    colaListos.remove(siguiente)
+    siguiente = min(memoria, key=lambda p: p["restante"])
+    memoria.remove(siguiente)
     siguiente["tUltimaActualizacion"] = tiempoActual
     procesoEnEjecucion = siguiente
-
-
-# Finalización de proceso
-
-def finalizarProceso(proceso, tiempoActual):
-    global totalEnListas
-
-    proceso["tFin"] = tiempoActual  # necesario para TR y TE después
-    colaTerminados.append(proceso)
-
-    # liberar la partición que tenía asignada
-    for part in memoria:
-        if part["proceso"] == proceso["id"]:
-            part["proceso"] = "LIBRE"
-            break
-
-    totalEnListas -= 1
 
 
 # ---------- Reloj de la simulación ----------
@@ -226,9 +165,9 @@ def avanzarReloj():
 
     # si terminó, lo finalizo, libero memoria y reviso si algún suspendido entra ahora
     if procesoQueTermina is not None:
-        finalizarProceso(procesoQueTermina, tiempoActual)
+        #finalizarProceso(procesoQueTermina, tiempoActual)
         procesoEnEjecucion = None
-        intentarAdmitirSuspendidos(tiempoActual)
+        admitirSuspendidos(tiempoActual)
 
     # el usuario decide, uno por uno, si admite a Listos los procesos ya arribados
     cargarNuevos(tiempoActual)
