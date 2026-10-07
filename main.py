@@ -26,4 +26,6 @@ def inicio():
             bandera = True
             print("Ingrese una opcion válida")
 
-inicio()
+
+if __name__ == "__main__":
+    inicio()

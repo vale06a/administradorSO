@@ -1,52 +1,35 @@
 from administradorCPU import *
-import xml.etree.ElementTree as ET
+import csv
 from pathlib import Path
+
 
 def leerArchivo():
 
-
-    NS = {"svg": "http://www.w3.org/2000/svg"}
-
     carpeta = Path.cwd().parent
-
-    archivos = list(carpeta.rglob("*.svg")) #busca algun archivo .svg
+    archivos = sorted(carpeta.rglob("*.csv"))
 
     if not archivos:
-        print("No se encontró ningún .svg. Directorio actual:", Path.cwd())
+        print("No se encontró ningún .csv. Directorio actual:", Path.cwd())
+        return
 
-    NS = {"svg": "http://www.w3.org/2000/svg"}
-
-    arbol = ET.parse(archivos[0]) #almacena solamente el primer archivo .svg
-    raiz = arbol.getroot()
+    with open(archivos[0], newline="", encoding="utf-8") as f:
+        filas = list(csv.reader(f))
 
     print("PROCESOS:")
-    count = 0
-    for tspan in raiz.iterfind(".//svg:tspan", NS):
-        print(tspan.text)
-        linea = tspan.text.strip()
+    for fila in filas:
+        if not fila or not fila[0].strip().isnumeric():
+            continue  # salta encabezado o líneas vacías
+        id_, tam, ta, ti = (int(v) for v in fila[:4])
+        proceso = {"id": id_, "tam": tam, "TA": ta, "TI": ti}
+        colaNuevos.append(proceso)
+        print(proceso)
 
-        #algoritmo para guardar en la cola de nuevos
-        if count > 2:
-            celdas = [c.strip() for c in linea.strip("|").split("|")]
-            if celdas[0].isnumeric():          # descarta el encabezado ("ID")
-                colaNuevos.append([int(c) for c in celdas]) #se carga la cola de nuevos con los procesos
-
-        count += 1
-
-    #cargo la cola de listos/memoria y la cola de listos/susp
-    for procesos in colaNuevos[:]:
-        mejorParticion = best_FIT(procesos[1]) 
-
-        if mejorParticion == -1:
-            colaListosYSusp.append(procesos)
-            colaNuevos.remove(procesos)
-            continue
-
-        asignarParticion(mejorParticion, procesos)
-        colaListos.append(procesos)
-        colaNuevos.remove(procesos)
+    # Los procesos quedan en colaNuevos. Se admiten progresivamente según
+    # su TA y el límite de 5 (Ejecución + Listos + Listos/Susp) dentro
+    # del loop tick a tick de mostrarCPU, vía cargarNuevos().
 
     def mostrarCPU():
+        global procesoEnEjecucion
 
         w_t, w_id, w_tam, w_ta, w_ti = 8, 5, 25, 7, 7
 
@@ -61,127 +44,134 @@ def leerArchivo():
         print(encabezado)
         print("├" + "─" * (ancho - 2) + "┤")
 
-        global procesoEnEjecucion
         tiempo = 0
 
-        while colaListos or colaListosYSusp or procesoEnEjecucion is not None:
+        while colaNuevos or colaListos or colaListosYSusp or procesoEnEjecucion is not None:
 
-            if procesoEnEjecucion is not None and procesoEnEjecucion[3] == 0: #controlo si termino el proceso
-                colaTerminados.append(procesoEnEjecucion)
-                for part in memoria:
-                    if part["proceso"] == procesoEnEjecucion[0]:
-                        part["proceso"] = "LIBRE"
-                        procesoEnEjecucion = None
-                        admitirSuspendidos()
+            # admite procesos cuyo TA ya llegó, respetando el límite de 5
+            cargarNuevos(tiempo)
 
-            #Si no hay nada listo ni en ejecución, intentar admitir suspendidos
+            # si terminó el proceso en ejecución, lo libero y reviso suspendidos
+            if procesoEnEjecucion is not None and procesoEnEjecucion["restante"] == 0:
+                finalizarProceso(procesoEnEjecucion, tiempo)
+                procesoEnEjecucion = None
+                admitirSuspendidos(tiempo)
+
+            # si no hay nada corriendo ni en Listos, intento habilitar suspendidos
             if procesoEnEjecucion is None and not colaListos:
-                admitirSuspendidos()
-                if not colaListos:
-                    print("Procesos que no se ejecutaron por falta de memoria: ")
-                    for procesos in colaNuevos:
-                        print(fila(f"t = {tiempo}", procesos[0], procesos[1], procesos[2], procesos[4]))
-                    break                        
+                admitirSuspendidos(tiempo)
 
-                
+            # selección / expropiación SRTF
             if colaListos:
-                mejorProceso = min(colaListos, key=lambda p: p[3]) #toma el menor tiempo restante (SRTF)
+                mejorProceso = min(colaListos, key=lambda p: p["restante"])
                 if procesoEnEjecucion is None:
-                    procesoEnEjecucion = mejorProceso
-                    procesoEnEjecucion[2] = tiempo
                     colaListos.remove(mejorProceso)
-                elif mejorProceso[3] < procesoEnEjecucion[3]: #trata la expropiación
+                    procesoEnEjecucion = mejorProceso
+                elif mejorProceso["restante"] < procesoEnEjecucion["restante"]:
                     colaListos.append(procesoEnEjecucion)
-                    procesoEnEjecucion = mejorProceso
-                    procesoEnEjecucion[2] = tiempo
                     colaListos.remove(mejorProceso)
+                    procesoEnEjecucion = mejorProceso
+
+            if procesoEnEjecucion is None:
+                if not colaNuevos:
+                    # no queda nada por llegar ni nada para correr: quedó trabado
+                    break
+                tiempo += 1
+                continue
 
             p = procesoEnEjecucion
-            print(fila(f"t = {tiempo}", p[0], p[1], p[2], p[3]))
+            print(fila(f"t = {tiempo}", p["id"], p["tam"], p["TA"], p["restante"]))
 
-
-            procesoEnEjecucion[3] -= 1
+            procesoEnEjecucion["restante"] -= 1
             tiempo += 1
 
-            input(print("Presione ENTER para volver: "))
-            interactuar()
+        if colaListosYSusp:
+            print("Procesos que no llegaron a ejecutarse por falta de memoria:")
+            for proceso in colaListosYSusp:
+                print(proceso)
 
+        input("Presione ENTER para volver: ")
+        interactuar()
 
     def mostrarMemoria():
         w_t, w_id, w_tam, w_ta = 8, 5, 25, 7
-            
+
         def fila(t, id_, tam, ta):
             return (f"│ {t:^{w_t}} │ {id_:^{w_id}} │ {tam:^{w_tam}} │ {ta:^{w_ta}} │")
-            
+
         encabezado = fila("Id_Particion", "dir_Particion", "Tamaño (KB)", "id_proceso")
         ancho = len(encabezado)
-            
+
         print("┌" + "─" * (ancho - 2) + "┐")
-        print("|" +" MEMORIA ".center(70)+" |")
+        print("|" + " MEMORIA ".center(70) + " |")
         print("├" + "─" * (ancho - 2) + "┤")
         print(encabezado)
         print("├" + "─" * (ancho - 2) + "┤")
-        
-        for p in memoria:
-            print("| "f"{str(p["id"]):^12}"" | "
-                f"{str(p["base"]):^13}" " | "
-                f"{str(p["tam"]):^25}" " | "
-                f"{str(p["proceso"]):^10}"" | ")
-        
-        print("└ "+ "─" * (ancho - 3) + "┘")
 
-        input(print("Presione ENTER para volver: "))
+        for p in memoria:
+            print("| " f"{str(p['id']):^12}" " | "
+                  f"{str(p['base']):^13}" " | "
+                  f"{str(p['tam']):^25}" " | "
+                  f"{str(p['proceso']):^10}" " | ")
+
+        print("└ " + "─" * (ancho - 3) + "┘")
+
+        input("Presione ENTER para volver: ")
         interactuar()
 
-
-    tabla_particiones = []
-
     def mostrarParticiones():
-        frag_ext = 550
+        tabla_particiones = []
+        frag_ext = 0
         totalMemoria = 0
-        for proceso in range(len(memoria) - 1):
-            nuevaParticion = {
-                "id_particion": memoria[proceso]["id"],
-                "dirParticion": memoria[proceso]["base"],
-                "tamaño": memoria[proceso]["tam"],
-                "id_proceso": memoria[proceso]["proceso"]
-            }
-            totalMemoria = totalMemoria + memoria[proceso]["tam"]
-            frag_ext = frag_ext - memoria[proceso]["tam"]
-            tabla_particiones.append(nuevaParticion)
+
+        for part in memoria:
+            if part["proceso"] == "SO":
+                continue  # la partición del SO no es parte del área de usuarios
+
+            tabla_particiones.append({
+                "id_particion": part["id"],
+                "dirParticion": part["base"],
+                "tamaño": part["tam"],
+                "id_proceso": part["proceso"],
+            })
+
+            if part["proceso"] == "LIBRE":
+                frag_ext += part["tam"]
+            else:
+                totalMemoria += part["tam"]
 
         w_t, w_id, w_tam, w_ta = 8, 5, 25, 7
-        
+
         def fila(t, id_, tam, ta):
             return (f"│ {t:^{w_t}} │ {id_:^{w_id}} │ {tam:^{w_tam}} │ {ta:^{w_ta}} │")
-        
+
         encabezado = fila("Id_Particion", "dir_Particion", "Tamaño (KB)", "id_proceso")
         ancho = len(encabezado)
-        
+
         print("┌" + "─" * (ancho - 2) + "┐")
-        print("|" +" PARTICIONES ".center(70)+" |")
+        print("|" + " PARTICIONES ".center(70) + " |")
         print("├" + "─" * (ancho - 2) + "┤")
         print(encabezado)
         print("├" + "─" * (ancho - 2) + "┤")
 
         for p in tabla_particiones:
-            print("| "f"{str(p["id_particion"]):^12}"" | "
-                f"{str(p["dirParticion"]):^13}" " | "
-                f"{str(p["tamaño"]):^25}" " | "
-                f"{str(p["id_proceso"]):^10}"" | ")
+            print("| " f"{str(p['id_particion']):^12}" " | "
+                  f"{str(p['dirParticion']):^13}" " | "
+                  f"{str(p['tamaño']):^25}" " | "
+                  f"{str(p['id_proceso']):^10}" " | ")
 
-        print("├ "+ "─" * (ancho - 3) + "┤")
+        print("├ " + "─" * (ancho - 3) + "┤")
         print(f"{'| MEMORIA TOTAL OCUPADA:'}{str(totalMemoria):>47}" " | ")
         print(f"{'| FRAGMENTACION EXTERNA:'}{str(frag_ext):>47}" " | ")
-        print("└ "+ "─" * (ancho - 3) + "┘")
+        print("└ " + "─" * (ancho - 3) + "┘")
 
-        input(print("Presione ENTER para volver: "))
+        input("Presione ENTER para volver: ")
         interactuar()
 
     from main import inicio
 
     def interactuar():
-        bandera = True 
+        bandera = True
         while bandera:
             bandera = False
             print("\n¿Que desea ver?")
@@ -190,7 +180,7 @@ def leerArchivo():
             print("Presiones 3 si quiere ver que proceso esta en ejecucion")
             print("Presione 4 para volver al menu principal")
             op = int(input())
-    
+
             if op == 1:
                 mostrarParticiones()
             elif op == 2:
