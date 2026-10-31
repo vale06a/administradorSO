@@ -68,6 +68,10 @@ def cargarNuevos(tiempoActual):
         else:
             asignarParticion(idx, proceso)
             proceso["restante"] = proceso["TI"]
+            # TA_listos: instante real en que el proceso entra a Listos.
+            # No siempre coincide con TA: puede demorar por el tope de 5
+            # procesos simultáneos o por falta de partición libre.
+            proceso["taListos"] = tiempoActual
             colaListos.append(proceso)
 
         colaNuevos.remove(proceso)
@@ -85,16 +89,26 @@ def admitirSuspendidos(tiempoActual):
 
         asignarParticion(idx, proceso)
         proceso["restante"] = proceso["TI"]
+        # recién ahora entra efectivamente a Listos (estuvo suspendido un tiempo)
+        proceso["taListos"] = tiempoActual
         colaListos.append(proceso)
         colaListosYSusp.remove(proceso)
 
 
-# mueve un proceso a Terminado y libera su partición
+# mueve un proceso a Terminado, libera su partición y calcula sus métricas
 
 def finalizarProceso(proceso, tiempoActual):
     global totalEnListas
 
     proceso["tFin"] = tiempoActual  # necesario para TR y TE
+
+    # TR y TE se calculan desde taListos (arribo EFECTIVO a la cola de Listos),
+    # no desde TA del archivo: un proceso puede quedar esperando antes de
+    # conseguir memoria (tope de 5 simultáneos o falta de partición libre),
+    # y ese tiempo de espera previo no es parte de su tiempo en el sistema.
+    proceso["TR"] = proceso["tFin"] - proceso["taListos"]
+    proceso["TE"] = proceso["TR"] - proceso["TI"]
+
     colaTerminados.append(proceso)
 
     for part in memoria:
@@ -103,3 +117,54 @@ def finalizarProceso(proceso, tiempoActual):
             break
 
     totalEnListas -= 1
+
+
+# informe final: TR y TE por proceso, promedios y rendimiento del sistema
+
+def generarInformeFinal():
+    if not colaTerminados:
+        print("No hay procesos terminados para informar.")
+        return
+
+    print("\n=== INFORME FINAL ===")
+    print(f"{'ID':^5} | {'TR':^6} | {'TE':^6}")
+    print("-" * 24)
+
+    sumaTR = 0
+    sumaTE = 0
+    for proceso in colaTerminados:
+        print(f"{proceso['id']:^5} | {proceso['TR']:^6} | {proceso['TE']:^6}")
+        sumaTR += proceso["TR"]
+        sumaTE += proceso["TE"]
+
+    n = len(colaTerminados)
+    promedioTR = sumaTR / n
+    promedioTE = sumaTE / n
+    tiempoTotal = max(p["tFin"] for p in colaTerminados)
+    rendimiento = n / tiempoTotal if tiempoTotal > 0 else 0
+
+    print("-" * 24)
+    print(f"Promedio TR: {promedioTR:.2f}")
+    print(f"Promedio TE: {promedioTE:.2f}")
+    print(f"Rendimiento del sistema: {rendimiento:.3f} procesos por unidad de tiempo")
+
+
+# vuelve el simulador a su estado inicial (útil para correr la simulación
+# más de una vez en la misma ejecución del programa, sin arrastrar datos
+# de una corrida anterior)
+
+def reiniciarSimulador():
+    global memoria, siguienteIdParticion, colaNuevos, colaListos
+    global colaListosYSusp, colaTerminados, totalEnListas, procesoEnEjecucion
+
+    memoria = [
+        {"id": 0, "base": 0,   "tam": 100, "proceso": "SO"},
+        {"id": 1, "base": 100, "tam": 450, "proceso": "LIBRE"},
+    ]
+    siguienteIdParticion = 2
+    colaNuevos = []
+    colaListos = []
+    colaListosYSusp = []
+    colaTerminados = []
+    totalEnListas = 0
+    procesoEnEjecucion = None

@@ -85,6 +85,8 @@ def leerArchivo():
             procesoEnEjecucion["restante"] -= 1
             tiempo += 1
 
+        generarInformeFinal()
+
         if colaListosYSusp:
             print("Procesos que no llegaron a ejecutarse por falta de memoria:")
             for proceso in colaListosYSusp:
