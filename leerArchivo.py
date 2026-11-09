@@ -3,24 +3,125 @@ import csv
 from pathlib import Path
 
 
+def _mostrarFormatoEsperado():
+    print()
+    print("Formato esperado del archivo .csv:")
+    print("  - Archivo de texto plano con extensión .csv y separador coma.")
+    print("  - (Opcional) una primera línea con los nombres de las columnas.")
+    print("  - Cada línea restante representa UN proceso con 4 columnas:")
+    print("        id, tam, TA, TI")
+    print("    donde:")
+    print("        id  = número entero identificador del proceso")
+    print("        tam = tamaño del proceso en KB  (entero mayor a 0)")
+    print("        TA  = tiempo de arribo          (entero mayor o igual a 0)")
+    print("        TI  = tiempo de irrupción       (entero mayor a 0)")
+    print("  - Máximo 10 procesos en total.")
+    print()
+    print("Ejemplo valido:")
+    print("        id,tam,TA,TI")
+    print("        0,100,0,5")
+    print("        1,150,1,8")
+    print("        2,80,2,3")
+    print()
+
+
 def leerArchivo():
 
-    carpeta = Path.cwd().parent
-    archivos = sorted(carpeta.rglob("*.csv"))
+    # Pedir la ruta del archivo al usuario. Si deja vacío (solo ENTER),
+    # se intenta buscar automáticamente un .csv en la carpeta padre,
+    # para no romper el flujo anterior.
+    print("\nIngrese la ruta completa del archivo .csv")
+    print("(o presione ENTER para buscar automáticamente en la carpeta padre):")
+    rutaIngresada = input().strip().strip('"').strip("'")
 
-    if not archivos:
-        print("No se encontró ningún .csv. Directorio actual:", Path.cwd())
+    if rutaIngresada:
+        archivo = Path(rutaIngresada)
+        if not archivo.exists():
+            print(f"ERROR: no se encontró el archivo en la ruta indicada:")
+            print(f"       {rutaIngresada}")
+            return
+        if not archivo.is_file():
+            print(f"ERROR: la ruta indicada no apunta a un archivo:")
+            print(f"       {rutaIngresada}")
+            return
+        if archivo.suffix.lower() != ".csv":
+            print(f"ERROR: el archivo debe tener extensión .csv "
+                  f"(recibí '{archivo.suffix}').")
+            _mostrarFormatoEsperado()
+            return
+    else:
+        carpeta = Path.cwd().parent
+        archivos = sorted(carpeta.rglob("*.csv"))
+        if not archivos:
+            print(f"No se encontró ningún .csv en {carpeta}")
+            _mostrarFormatoEsperado()
+            return
+        archivo = archivos[0]
+        print(f"Se usará automáticamente el archivo: {archivo}")
+
+    try:
+        with open(archivo, newline="", encoding="utf-8") as f:
+            filas = list(csv.reader(f))
+    except (OSError, UnicodeDecodeError) as e:
+        print(f"ERROR al abrir/leer el archivo: {e}")
+        _mostrarFormatoEsperado()
         return
 
-    with open(archivos[0], newline="", encoding="utf-8") as f:
-        filas = list(csv.reader(f))
+    # Primero recolectamos los procesos del archivo en una lista temporal
+    # para poder validar cantidad y formato ANTES de empezar la simulación.
+    # El enunciado establece un máximo de 10 procesos.
+    procesosArchivo = []
+    for nroLinea, fila in enumerate(filas, start=1):
+        if not fila or all(not c.strip() for c in fila):
+            continue  # línea vacía: se ignora
+        # Si la primera columna no es un número entero, asumimos cabecera
+        # y saltamos (solo si estamos en las primeras líneas; si aparece en
+        # el medio, es un error de formato que se detecta más abajo).
+        if not fila[0].strip().isnumeric():
+            if not procesosArchivo:
+                continue  # cabecera inicial, OK
+            print(f"ERROR en la línea {nroLinea}: se esperaba un proceso con "
+                  f"4 valores numéricos pero la primera columna no es un entero.")
+            print(f"       Línea leída: {fila}")
+            _mostrarFormatoEsperado()
+            return
 
-    print("PROCESOS:")
-    for fila in filas:
-        if not fila or not fila[0].strip().isnumeric():
-            continue  # salta encabezado o líneas vacías
-        id_, tam, ta, ti = (int(v) for v in fila[:4])
-        proceso = {"id": id_, "tam": tam, "TA": ta, "TI": ti}
+        if len(fila) < 4:
+            print(f"ERROR en la línea {nroLinea}: se esperan 4 columnas "
+                  f"(id, tam, TA, TI) pero se encontraron {len(fila)}.")
+            print(f"       Línea leída: {fila}")
+            _mostrarFormatoEsperado()
+            return
+
+        try:
+            id_, tam, ta, ti = (int(v.strip()) for v in fila[:4])
+        except ValueError:
+            print(f"ERROR en la línea {nroLinea}: las 4 columnas "
+                  f"(id, tam, TA, TI) deben ser números enteros.")
+            print(f"       Línea leída: {fila[:4]}")
+            _mostrarFormatoEsperado()
+            return
+
+        if tam <= 0 or ti <= 0 or ta < 0 or id_ < 0:
+            print(f"ERROR en la línea {nroLinea}: valores fuera de rango. "
+                  f"Se requiere id >= 0, tam > 0, TA >= 0, TI > 0.")
+            print(f"       Recibido: id={id_}, tam={tam}, TA={ta}, TI={ti}")
+            _mostrarFormatoEsperado()
+            return
+
+        procesosArchivo.append({"id": id_, "tam": tam, "TA": ta, "TI": ti})
+
+    if len(procesosArchivo) > 10:
+        print(f"ERROR: el archivo tiene {len(procesosArchivo)} procesos; "
+              f"el máximo permitido es 10. No se ejecuta la simulación.")
+        return
+    if len(procesosArchivo) == 0:
+        print("ERROR: el archivo no contiene procesos válidos.")
+        _mostrarFormatoEsperado()
+        return
+
+    print(f"\nPROCESOS ({len(procesosArchivo)} de 10 máximo):")
+    for proceso in procesosArchivo:
         colaNuevos.append(proceso)
         print(proceso)
 
@@ -76,7 +177,12 @@ def leerArchivo():
                 if not colaNuevos:
                     # no queda nada por llegar ni nada para correr: quedó trabado
                     break
-                tiempo += 1
+                # CPU ociosa: en lugar de avanzar tick a tick (desperdiciando
+                # tiempo), saltamos directamente al próximo arribo. No se
+                # descuenta tiempo de ejecución de ningún proceso porque la
+                # CPU está libre.
+                proximoTA = min(p["TA"] for p in colaNuevos)
+                tiempo = max(tiempo + 1, proximoTA)
                 continue
 
             p = procesoEnEjecucion

@@ -111,9 +111,24 @@ def finalizarProceso(proceso, tiempoActual):
 
     colaTerminados.append(proceso)
 
-    for part in memoria:
+    # Liberar la partición del proceso y fusionar huecos libres adyacentes
+    # (consolidación de memoria en MVT). Si la partición siguiente o la
+    # anterior ya están LIBRE, se unen en un único hueco más grande.
+    for i, part in enumerate(memoria):
         if part["proceso"] == proceso["id"]:
             part["proceso"] = "LIBRE"
+
+            # 1) fusión con la partición de la derecha si está libre
+            if i + 1 < len(memoria) and memoria[i + 1]["proceso"] == "LIBRE":
+                part["tam"] += memoria[i + 1]["tam"]
+                memoria.pop(i + 1)
+
+            # 2) fusión con la partición de la izquierda si está libre
+            # (la del SO nunca entra acá porque su ocupante es "SO", no "LIBRE")
+            if i > 0 and memoria[i - 1]["proceso"] == "LIBRE":
+                memoria[i - 1]["tam"] += part["tam"]
+                memoria.pop(i)
+
             break
 
     totalEnListas -= 1

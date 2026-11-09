@@ -53,6 +53,18 @@ def obtenerEstado(proceso):
     return "NUEVO"
 
 
+def imprimirEstadoProcesador(tiempoActual):
+    # Estado explícito del procesador en el instante t (requerido por la
+    # devolución general): quién ejecuta o si la CPU está ociosa.
+    print(f"\n>>> ESTADO DEL PROCESADOR (t={tiempoActual}) <<<")
+    if cpu.procesoEnEjecucion is None:
+        print("    Procesador: CPU OCIOSA")
+    else:
+        p = cpu.procesoEnEjecucion
+        print(f"    Procesador: ejecutando P{p['id']} "
+              f"(restante={p['restante']}, TI={p['TI']})")
+
+
 def imprimirTablaProcesos(procesos, tiempoActual):
     print(f"\n--- ESTADO DE PROCESOS (t={tiempoActual}) ---")
     encabezado = (f"{'ID':^4} | {'Tam':^5} | {'TA':^4} | {'TI':^4} | "
@@ -69,12 +81,41 @@ def imprimirTablaProcesos(procesos, tiempoActual):
 
 
 def imprimirTablaMemoria():
-    print("\n--- ESTADO DE MEMORIA ---")
-    print(f"{'Particion':^10} | {'Base':^6} | {'Tam':^5} | {'Ocupante':^10}")
-    print("-" * 40)
+    # En MVT con best-fit que recorta al tamaño exacto, la fragmentación
+    # interna es siempre 0 (se incluye la columna igual porque forma parte
+    # de lo que se pide mostrar en la tabla de particiones).
+    print("\n--- ESTADO DE MEMORIA (particiones) ---")
+    encabezado = (f"{'Particion':^10} | {'Base':^6} | {'Tam':^5} | "
+                  f"{'Ocupante':^10} | {'Frag.Int':^9}")
+    print(encabezado)
+    print("-" * len(encabezado))
     for part in cpu.memoria:
+        if part["proceso"] == "SO":
+            frag_int = 0
+        elif part["proceso"] == "LIBRE":
+            frag_int = "-"
+        else:
+            frag_int = 0  # best-fit recorta al tamaño exacto → nunca hay sobrante
         print(f"{part['id']:^10} | {part['base']:^6} | {part['tam']:^5} | "
-              f"{str(part['proceso']):^10}")
+              f"{str(part['proceso']):^10} | {str(frag_int):^9}")
+
+
+def imprimirColas():
+    # Vista compacta de las colas requerida por la devolución general.
+    listos = [f"P{p['id']}" for p in cpu.colaListos]
+    susp = [f"P{p['id']}" for p in cpu.colaListosYSusp]
+    nuevos = [f"P{p['id']}" for p in cpu.colaNuevos]
+    print("\n--- COLAS ---")
+    print(f"    Nuevos            : {nuevos if nuevos else '(vacía)'}")
+    print(f"    Listos            : {listos if listos else '(vacía)'}")
+    print(f"    Listos/Suspendidos: {susp if susp else '(vacía)'}")
+
+
+def imprimirEstadoCompleto(procesos, tiempoActual):
+    imprimirEstadoProcesador(tiempoActual)
+    imprimirTablaMemoria()
+    imprimirColas()
+    imprimirTablaProcesos(procesos, tiempoActual)
 
 
 def simulacionEventos():
@@ -85,8 +126,7 @@ def simulacionEventos():
 
     tiempo = 0
     print("\n>>> INICIO DE LA SIMULACIÓN (t=0) <<<")
-    imprimirTablaProcesos(todosLosProcesos, tiempo)
-    imprimirTablaMemoria()
+    imprimirEstadoCompleto(todosLosProcesos, tiempo)
     esperarAvance()
 
     while cpu.colaNuevos or cpu.colaListos or cpu.colaListosYSusp or cpu.procesoEnEjecucion is not None:
@@ -136,22 +176,29 @@ def simulacionEventos():
                 print(f"\n>>> t={tiempo}: finalizó el proceso P{idTerminado} <<<")
             if memoriaCambioPorSuspendido and not terminoAlgo:
                 print(f"\n>>> t={tiempo}: un proceso suspendido consiguió memoria <<<")
-            imprimirTablaProcesos(todosLosProcesos, tiempo)
-            imprimirTablaMemoria()
+            imprimirEstadoCompleto(todosLosProcesos, tiempo)
             esperarAvance()
 
+        # Si la CPU está ociosa y no hay nada en Listos, saltamos directo
+        # al próximo arribo en lugar de avanzar tick a tick: el reloj
+        # avanza pero no se descuenta tiempo de ejecución a nadie.
         if cpu.procesoEnEjecucion is None:
             if not cpu.colaNuevos:
                 break
-            tiempo += 1
+            proximoTA = min(p["TA"] for p in cpu.colaNuevos)
+            if proximoTA > tiempo:
+                print(f"\n>>> t={tiempo}: CPU OCIOSA — se salta al próximo "
+                      f"arribo (t={proximoTA}) <<<")
+                tiempo = proximoTA
+            else:
+                tiempo += 1
             continue
 
         cpu.procesoEnEjecucion["restante"] -= 1
         tiempo += 1
 
     print("\n>>> SIMULACIÓN FINALIZADA <<<")
-    imprimirTablaProcesos(todosLosProcesos, tiempo)
-    imprimirTablaMemoria()
+    imprimirEstadoCompleto(todosLosProcesos, tiempo)
     cpu.generarInformeFinal()
 
     input("\nPresione ENTER para volver al menú principal: ")
