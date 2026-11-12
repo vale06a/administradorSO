@@ -118,10 +118,17 @@ def imprimirEstadoCompleto(procesos, tiempoActual):
     imprimirTablaProcesos(procesos, tiempoActual)
 
 
-def simulacionEventos():
+def simulacionEventos(procesos=None):
+    """Simulación por eventos con avance manual.
+
+    Si no se pasa `procesos`, usa la lista demo (PROCESOS_DEMO) de 10
+    procesos fijos. Si se le pasa una lista de procesos (por ejemplo
+    la que cargó leerArchivo desde un CSV), la usa en su lugar.
+    """
     cpu.reiniciarSimulador()
 
-    todosLosProcesos = [dict(p) for p in PROCESOS_DEMO]
+    listaAUsar = PROCESOS_DEMO if procesos is None else procesos
+    todosLosProcesos = [dict(p) for p in listaAUsar]
     cpu.colaNuevos.extend(todosLosProcesos)
 
     tiempo = 0

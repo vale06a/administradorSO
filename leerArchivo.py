@@ -125,6 +125,12 @@ def leerArchivo():
         colaNuevos.append(proceso)
         print(proceso)
 
+    # Guardamos una copia de los procesos cargados para poder reusarlos
+    # desde la opción "Ejecutar simulación paso a paso". Si el usuario
+    # elige esa opción, el simulador se reinicia y se recarga con esta
+    # lista (porque colaNuevos puede haberse consumido por otras opciones).
+    procesosCargados = [dict(p) for p in procesosArchivo]
+
     # Los procesos quedan en colaNuevos. Se admiten progresivamente según
     # su TA y el límite de 5 (Ejecución + Listos + Listos/Susp) dentro
     # del loop tick a tick de mostrarCPU, vía cargarNuevos().
@@ -285,8 +291,9 @@ def leerArchivo():
             print("\n¿Que desea ver?")
             print("Presione 1 si quiere ver las particiones")
             print("Presione 2 si quiere ver que procesos estan cargados en memoria")
-            print("Presiones 3 si quiere ver que proceso esta en ejecucion")
-            print("Presione 4 para volver al menu principal")
+            print("Presione 3 si quiere ver la simulación tick a tick (sin pausas)")
+            print("Presione 4 para ejecutar la simulación paso a paso con avance manual")
+            print("Presione 5 para volver al menu principal")
             op = int(input())
 
             if op == 1:
@@ -296,6 +303,11 @@ def leerArchivo():
             elif op == 3:
                 mostrarCPU()
             elif op == 4:
+                # Simulación por eventos con los procesos cargados del CSV
+                from simulacionPrueba import simulacionEventos
+                simulacionEventos(procesos=procesosCargados)
+                interactuar()
+            elif op == 5:
                 inicio()
             else:
                 bandera = True
