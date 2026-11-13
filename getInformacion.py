@@ -1,4 +1,3 @@
-#"┌ ┐ └ ┘ ─ │ ├ ┤ ┬ ┴ ┼"
 def getInformacion():
     print("┌", "-"*60 ,"┐")
     print("|","COMISION 2.2 - EQUIPO 3".center(60),"|")
@@ -13,5 +12,11 @@ def getInformacion():
     print("└", "-"*60 ,"┘")
 
     from main import inicio
-    input(print("Presione ENTER para volver a inicio."))
+    while True:
+        tecla = input("\nPresioná ENTER para volver al inicio: ")
+        if tecla == "":
+            break  
+        print("Opción inválida, volvé a intentarlo.")
+    
     inicio()
+    
