@@ -76,7 +76,8 @@ def imprimirTablaProcesos(procesos, tiempoActual):
         restante = p.get("restante", "-")
         tr = p.get("TR", "-")
         te = p.get("TE", "-")
-        print(f"{p['id']:^4} | {p['tam']:^5} | {p['TA']:^4} | {p['TI']:^4} | "
+        etiqueta = f"P{p['id']}"
+        print(f"{etiqueta:^4} | {p['tam']:^5} | {p['TA']:^4} | {p['TI']:^4} | "
               f"{estado:^12} | {restante:^5} | {tr:^5} | {te:^5}")
 
 
@@ -92,12 +93,15 @@ def imprimirTablaMemoria():
     for part in cpu.memoria:
         if part["proceso"] == "SO":
             frag_int = 0
+            ocupante = "SO"
         elif part["proceso"] == "LIBRE":
             frag_int = "-"
+            ocupante = "LIBRE"
         else:
             frag_int = 0  # best-fit recorta al tamaño exacto → nunca hay sobrante
+            ocupante = f"P{part['proceso']}"
         print(f"{part['id']:^10} | {part['base']:^6} | {part['tam']:^5} | "
-              f"{str(part['proceso']):^10} | {str(frag_int):^9}")
+              f"{ocupante:^10} | {str(frag_int):^9}")
 
 
 def imprimirColas():

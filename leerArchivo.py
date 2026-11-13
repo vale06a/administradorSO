@@ -5,23 +5,26 @@ from pathlib import Path
 
 def _mostrarFormatoEsperado():
     print()
-    print("Formato esperado del archivo .csv:")
+    print("Formato esperado del archivo .csv (igual al enunciado de la cátedra):")
     print("  - Archivo de texto plano con extensión .csv y separador coma.")
     print("  - (Opcional) una primera línea con los nombres de las columnas.")
-    print("  - Cada línea restante representa UN proceso con 4 columnas:")
-    print("        id, tam, TA, TI")
+    print("  - Cada línea restante representa UN proceso con 4 columnas,")
+    print("    en el siguiente orden:")
+    print("        Proceso, TA, TI, Tamaño")
     print("    donde:")
-    print("        id  = número entero identificador del proceso")
-    print("        tam = tamaño del proceso en KB  (entero mayor a 0)")
-    print("        TA  = tiempo de arribo          (entero mayor o igual a 0)")
-    print("        TI  = tiempo de irrupción       (entero mayor a 0)")
+    print("        Proceso = identificador del proceso. Se aceptan ambos")
+    print("                  formatos: con prefijo P (P1, P2, ..., Px)")
+    print("                  o directamente el número (1, 2, ..., x).")
+    print("        TA      = tiempo de arribo        (entero mayor o igual a 0)")
+    print("        TI      = tiempo de irrupción    (entero mayor a 0)")
+    print("        Tamaño  = tamaño del proceso en KB (entero mayor a 0)")
     print("  - Máximo 10 procesos en total.")
     print()
     print("Ejemplo valido:")
-    print("        id,tam,TA,TI")
-    print("        0,100,0,5")
-    print("        1,150,1,8")
-    print("        2,80,2,3")
+    print("        Proceso,TA,TI,Tamaño")
+    print("        P1,3,2,120")
+    print("        P2,10,4,130")
+    print("        P3,10,1,40")
     print()
 
 
@@ -70,42 +73,58 @@ def leerArchivo():
     # Primero recolectamos los procesos del archivo en una lista temporal
     # para poder validar cantidad y formato ANTES de empezar la simulación.
     # El enunciado establece un máximo de 10 procesos.
+    # Orden de columnas esperado (como en el PDF de la cátedra):
+    #     Proceso, TA, TI, Tamaño
+    # El campo Proceso acepta "P1", "p2", "P10" o simplemente "1", "2"...
     procesosArchivo = []
     for nroLinea, fila in enumerate(filas, start=1):
         if not fila or all(not c.strip() for c in fila):
             continue  # línea vacía: se ignora
-        # Si la primera columna no es un número entero, asumimos cabecera
-        # y saltamos (solo si estamos en las primeras líneas; si aparece en
-        # el medio, es un error de formato que se detecta más abajo).
-        if not fila[0].strip().isnumeric():
+
+        primera = fila[0].strip()
+        # Si la primera celda no empieza con un número ni con P+número,
+        # asumimos cabecera (solo si estamos antes del primer proceso).
+        esIdPrefijado = (len(primera) > 1 and primera[0] in "Pp"
+                         and primera[1:].isnumeric())
+        esIdNumero = primera.isnumeric()
+        if not (esIdPrefijado or esIdNumero):
             if not procesosArchivo:
                 continue  # cabecera inicial, OK
-            print(f"ERROR en la línea {nroLinea}: se esperaba un proceso con "
-                  f"4 valores numéricos pero la primera columna no es un entero.")
+            print(f"ERROR en la línea {nroLinea}: se esperaba un proceso "
+                  f"cuya primera columna sea un identificador (P1, P2, ... "
+                  f"o directamente un número).")
             print(f"       Línea leída: {fila}")
             _mostrarFormatoEsperado()
             return
 
         if len(fila) < 4:
             print(f"ERROR en la línea {nroLinea}: se esperan 4 columnas "
-                  f"(id, tam, TA, TI) pero se encontraron {len(fila)}.")
+                  f"(Proceso, TA, TI, Tamaño) pero se encontraron {len(fila)}.")
             print(f"       Línea leída: {fila}")
             _mostrarFormatoEsperado()
             return
 
         try:
-            id_, tam, ta, ti = (int(v.strip()) for v in fila[:4])
+            # Primera columna (Proceso): puede venir como "P1" o como "1".
+            # Nos quedamos con el número interno.
+            idRaw = primera.lstrip("Pp")
+            id_ = int(idRaw)
+            # Las otras tres columnas en el orden del PDF: TA, TI, Tamaño.
+            ta  = int(fila[1].strip())
+            ti  = int(fila[2].strip())
+            tam = int(fila[3].strip())
         except ValueError:
-            print(f"ERROR en la línea {nroLinea}: las 4 columnas "
-                  f"(id, tam, TA, TI) deben ser números enteros.")
+            print(f"ERROR en la línea {nroLinea}: las columnas TA, TI y "
+                  f"Tamaño deben ser números enteros, y Proceso debe ser "
+                  f"'P' seguido de un número o un número directamente.")
             print(f"       Línea leída: {fila[:4]}")
             _mostrarFormatoEsperado()
             return
 
         if tam <= 0 or ti <= 0 or ta < 0 or id_ < 0:
             print(f"ERROR en la línea {nroLinea}: valores fuera de rango. "
-                  f"Se requiere id >= 0, tam > 0, TA >= 0, TI > 0.")
-            print(f"       Recibido: id={id_}, tam={tam}, TA={ta}, TI={ti}")
+                  f"Se requiere Proceso >= 0, TA >= 0, TI > 0, Tamaño > 0.")
+            print(f"       Recibido: Proceso=P{id_}, TA={ta}, TI={ti}, Tamaño={tam}")
             _mostrarFormatoEsperado()
             return
 
@@ -123,7 +142,8 @@ def leerArchivo():
     print(f"\nPROCESOS ({len(procesosArchivo)} de 10 máximo):")
     for proceso in procesosArchivo:
         colaNuevos.append(proceso)
-        print(proceso)
+        print(f"  P{proceso['id']}: TA={proceso['TA']}  TI={proceso['TI']}  "
+              f"Tamaño={proceso['tam']}K")
 
     # Guardamos una copia de los procesos cargados para poder reusarlos
     # desde la opción "Ejecutar simulación paso a paso". Si el usuario

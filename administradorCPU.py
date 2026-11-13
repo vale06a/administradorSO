@@ -142,13 +142,14 @@ def generarInformeFinal():
         return
 
     print("\n=== INFORME FINAL ===")
-    print(f"{'ID':^5} | {'TR':^6} | {'TE':^6}")
-    print("-" * 24)
+    print(f"{'Proceso':^8} | {'TR':^6} | {'TE':^6}")
+    print("-" * 28)
 
     sumaTR = 0
     sumaTE = 0
     for proceso in colaTerminados:
-        print(f"{proceso['id']:^5} | {proceso['TR']:^6} | {proceso['TE']:^6}")
+        etiqueta = f"P{proceso['id']}"
+        print(f"{etiqueta:^8} | {proceso['TR']:^6} | {proceso['TE']:^6}")
         sumaTR += proceso["TR"]
         sumaTE += proceso["TE"]
 
