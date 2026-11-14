@@ -17,6 +17,7 @@ import csv
 from pathlib import Path
 
 from motorSnapshot import correrSimulacion
+from administradorCPU import MEMORIA_USUARIO
 
 
 # ======================================================================
@@ -46,7 +47,7 @@ FORMATO_ESPERADO = (
     "  - Cada línea restante es UN proceso con 4 columnas, en este orden:\n"
     "        Proceso, TA, TI, Tamaño\n"
     "  - Proceso acepta 'P1', 'p2', ..., o directamente 1, 2, ...\n"
-    "  - TA ≥ 0, TI > 0, Tamaño > 0 (todos enteros).\n"
+    f"  - TA ≥ 0, TI > 0, 1 ≤ Tamaño ≤ {MEMORIA_USUARIO} (todos enteros).\n"
     "  - Máximo 10 procesos.\n\n"
     "Ejemplo valido:\n"
     "    Proceso,TA,TI,Tamaño\n"
@@ -109,6 +110,13 @@ def parsearCSV(ruta):
                           f"Se requiere Proceso≥0, TA≥0, TI>0, Tamaño>0.\n"
                           f"Recibido: P{id_}, TA={ta}, TI={ti}, Tamaño={tam}"
                           f"\n\n{FORMATO_ESPERADO}")
+
+        if tam > MEMORIA_USUARIO:
+            return None, (f"Línea {nro}: el proceso P{id_} tiene un tamaño de {tam}K, "
+                          f"mayor a la memoria total disponible para procesos "
+                          f"({MEMORIA_USUARIO}K).\n"
+                          f"No puede cargarse ni con la memoria vacía. "
+                          f"Corregir el tamaño (máximo {MEMORIA_USUARIO}K).")
 
         procesos.append({"id": id_, "tam": tam, "TA": ta, "TI": ti})
 
@@ -478,6 +486,16 @@ class VentanaCargaManual(tk.Toplevel):
                     "Valores fuera de rango",
                     f"Fila {nro}: se requiere Proceso ≥ 0, TA ≥ 0, "
                     f"TI > 0, Tamaño > 0.",
+                    parent=self)
+                return
+            if tam > MEMORIA_USUARIO:
+                messagebox.showerror(
+                    "Tamaño excede la memoria",
+                    f"Fila {nro}: el proceso P{id_} tiene un tamaño de {tam}K, "
+                    f"mayor a la memoria total disponible para procesos "
+                    f"({MEMORIA_USUARIO}K).\n\n"
+                    f"No puede cargarse ni con la memoria vacía. "
+                    f"Corregir el tamaño (máximo {MEMORIA_USUARIO}K).",
                     parent=self)
                 return
             procesos.append({"id": id_, "tam": tam, "TA": ta, "TI": ti})

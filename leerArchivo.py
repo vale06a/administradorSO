@@ -17,7 +17,7 @@ def _mostrarFormatoEsperado():
     print("                  o directamente el número (1, 2, ..., x).")
     print("        TA      = tiempo de arribo        (entero mayor o igual a 0)")
     print("        TI      = tiempo de irrupción    (entero mayor a 0)")
-    print("        Tamaño  = tamaño del proceso en KB (entero mayor a 0)")
+    print(f"        Tamaño  = tamaño del proceso en KB (entero entre 1 y {MEMORIA_USUARIO})")
     print("  - Máximo 10 procesos en total.")
     print()
     print("Ejemplo valido:")
@@ -126,6 +126,15 @@ def leerArchivo():
                   f"Se requiere Proceso >= 0, TA >= 0, TI > 0, Tamaño > 0.")
             print(f"       Recibido: Proceso=P{id_}, TA={ta}, TI={ti}, Tamaño={tam}")
             _mostrarFormatoEsperado()
+            return
+
+        if tam > MEMORIA_USUARIO:
+            print(f"ERROR en la línea {nroLinea}: el proceso P{id_} tiene un tamaño de "
+                  f"{tam}K, mayor a la memoria total disponible para procesos "
+                  f"({MEMORIA_USUARIO}K).")
+            print("       Un proceso de ese tamaño no puede cargarse en memoria "
+                  "aunque esté vacía, por lo que no se ejecuta la simulación.")
+            print(f"       Corregir el tamaño (máximo {MEMORIA_USUARIO}K) y volver a cargar el archivo.")
             return
 
         procesosArchivo.append({"id": id_, "tam": tam, "TA": ta, "TI": ti})

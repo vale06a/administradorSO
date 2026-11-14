@@ -1,5 +1,9 @@
 # Inicializo
 
+# Memoria total disponible para procesos de usuario (KB).
+# Un proceso más grande que esto no puede cargarse nunca.
+MEMORIA_USUARIO = 450
+
 memoria = [
     {"id": 0, "base": 0,   "tam": 100, "proceso": "SO"},
     {"id": 1, "base": 100, "tam": 450, "proceso": "LIBRE"},
